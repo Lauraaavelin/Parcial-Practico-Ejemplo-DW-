@@ -3,8 +3,11 @@ package co.edu.uniandes.dse.parcial1.services;
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -19,59 +22,92 @@ import co.edu.uniandes.dse.parcial1.services.ConciertoService;
 import jakarta.transaction.Transactional;
 import uk.co.jemos.podam.api.PodamFactory;
 import uk.co.jemos.podam.api.PodamFactoryImpl;
-
-@DataJpaTest // crear la base de datos que se usara en las pruebas 
+@DataJpaTest
 @Transactional
-@Import(ConciertoEstadioService.class) // importar el servicio que se va a probar
+@Import(ConciertoService.class)
 public class ConciertoServiceTest {
+
     @Autowired
     private ConciertoService conciertoService;
 
     @Autowired
-    private TestEntityManager entityManager;
-   
+	private TestEntityManager entityManager;
 
     private PodamFactory factory = new PodamFactoryImpl();
 
-  
-
+    private List<ConciertoEntity> conciertoList = new ArrayList<>();
 
     @BeforeEach
-    void setUp() {
-        clearData();
-        insertData();
-    }
+	void setUp() {
+		clearData();
+		insertData();
+	}
+
 
     private void clearData() {
-        entityManager.getEntityManager().createQuery("delete from CVEntidad").executeUpdate();
-        entityManager.getEntityManager().createQuery("delete from DatosContactoEntidad").executeUpdate();
-        entityManager.getEntityManager().createQuery("delete from EducacionEntidad").executeUpdate();
+        entityManager.getEntityManager().createQuery("delete from ConciertoEntity").executeUpdate();
     }
 
     private void insertData() {
         for (int i = 0; i < 3; i++) {
-            entityManager.persist(factory.manufacturePojo(ConciertoEntity.class));
+            ConciertoEntity entity = factory.manufacturePojo(ConciertoEntity.class);
+            entityManager.persist(entity);
+            conciertoList.add(entity);
         }
     }
 
     @Test
     void testCreateConcierto() throws Exception {
-        ConciertoEntity concierto = factory.manufacturePojo(ConciertoEntity.class);
-        concierto.setCapacidad(20);
-        concierto.setPresupuesto(2000L);
-        concierto.setFechaConcierto(LocalDateTime.now().plusDays(1));
-        ConciertoEntity result = conciertoService.createConcierto(concierto);
-        assertDoesNotThrow(() -> {
-            conciertoService.createConcierto(concierto);
-        });
+        ConciertoEntity newEntity = factory.manufacturePojo(ConciertoEntity.class);
         
+        newEntity.setFechaConcierto(LocalDateTime.now().plusMonths(1));
+        newEntity.setCapacidad(100);
+        newEntity.setPresupuesto(2000L);
+        ConciertoEntity result = conciertoService.createConcierto(newEntity);
+        assertNotNull(result);
+
         ConciertoEntity entity = entityManager.find(ConciertoEntity.class, result.getId());
-        assertNotNull(entity);
-        assertEquals(result.getCapacidad(), entity.getCapacidad());
-        assertEquals(result.getPresupuesto(), entity.getPresupuesto());
-        assertEquals(result.getFechaConcierto(), entity.getFechaConcierto());
-        assertEquals(result.getNombre(), entity.getNombre());
-        
+
+        assertEquals(newEntity.getNombre(), entity.getNombre());
+        assertEquals(newEntity.getFechaConcierto(), entity.getFechaConcierto());
+        assertEquals(newEntity.getCapacidad(), entity.getCapacidad());
+        assertEquals(newEntity.getPresupuesto(), entity.getPresupuesto());
     }
+
+    @Test
+    void testCreateConciertoInvalidFecha() {
+        
+        ConciertoEntity newEntity = factory.manufacturePojo(ConciertoEntity.class);
+        newEntity.setFechaConcierto(LocalDateTime.now().minusDays(1)); 
+        newEntity.setCapacidad(100);
+        newEntity.setPresupuesto(2000L);
+
+        assertThrows(IllegalArgumentException.class, () -> {
+            conciertoService.createConcierto(newEntity);
+        });
+    }
+
+    @Test
+    void testCreateConciertoInvalidAforo() {
+        ConciertoEntity newEntity = factory.manufacturePojo(ConciertoEntity.class);
+        newEntity.setFechaConcierto(LocalDateTime.now().plusMonths(1));
+        newEntity.setCapacidad(5);
+        newEntity.setPresupuesto(2000L);    
+        assertThrows(IllegalArgumentException.class, () -> {
+            conciertoService.createConcierto(newEntity);
+        });
+    }
+    
+    @Test
+    void testCreateConciertoInvalidPresupuesto() {
+        ConciertoEntity newEntity = factory.manufacturePojo(ConciertoEntity.class);
+        newEntity.setFechaConcierto(LocalDateTime.now().plusMonths(1));
+        newEntity.setCapacidad(100);
+        newEntity.setPresupuesto(500L);    
+        assertThrows(IllegalArgumentException.class, () -> {
+            conciertoService.createConcierto(newEntity);
+        });
+    }
+
 
 }
